@@ -33,6 +33,7 @@ dependencies {
     compileOnly("org.jetbrains:annotations:20.1.0")
     compileOnly("com.googlecode.json-simple:json-simple:1.1.1")
     implementation(kotlin("stdlib-jdk8"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
 }
 
 tasks.withType<JavaCompile> {
@@ -41,6 +42,10 @@ tasks.withType<JavaCompile> {
 
 tasks.shadowJar {
     archiveFileName.set("AfreecatvLib.jar")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 java {
