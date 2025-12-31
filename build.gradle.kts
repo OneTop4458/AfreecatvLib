@@ -13,25 +13,14 @@ version = "1.0.0"
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io")
-    maven("https://repo.repsy.io/mvn/lone64/paper")
-    maven("https://repo.codemc.io/repository/maven-snapshots/")
 }
 
 dependencies {
-    implementation("org.jsoup:jsoup:1.18.1")
     implementation("org.slf4j:slf4j-api:2.0.7")
-    implementation("com.googlecode.json-simple:json-simple:1.1.1")
-
-    compileOnly("net.kyori:adventure-api:4.13.0")
-    compileOnly("net.kyori:adventure-text-serializer-legacy:4.13.0")
 
     compileOnly("org.projectlombok:lombok:1.18.32")
     annotationProcessor("org.projectlombok:lombok:1.18.32")
 
-    compileOnly("commons-io:commons-io:2.16.1")
-    compileOnly("org.jetbrains:annotations:20.1.0")
-    compileOnly("com.googlecode.json-simple:json-simple:1.1.1")
     implementation(kotlin("stdlib-jdk8"))
 }
 
@@ -57,8 +46,8 @@ publishing {
     publications {
         create("maven-public", MavenPublication::class) {
             groupId = rootProject.group.toString()
-            artifactId = "library"
-            version = "1.0.0"
+            artifactId = rootProject.name
+            version = rootProject.version.toString()
             from(components.getByName("java"))
         }
     }
