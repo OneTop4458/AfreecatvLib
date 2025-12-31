@@ -106,37 +106,16 @@ class AfreecatvAPI(private var channelId: String?) {
     }
 
     companion object {
+        private const val USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        private val PLAYER_LIVE_API_BASES = listOf(
+            "https://live.sooplive.co.kr",
+            "https://live.afreecatv.com",
+        )
+
         fun getLiveInfo(bjId: String): AfreecatvLiveInfo {
             try {
-                val response = HttpClient.newHttpClient().use { client ->
-                    val bodyJson =
-                        mapOf(
-                            "bid" to bjId,
-                            "type" to "live",
-                            "confirm_adult" to "false",
-                            "player_type" to "html5",
-                            "mode" to "landing",
-                            "from_api" to "0",
-                            "pwd" to "",
-                            "stream_type" to "common",
-                            "quality" to "HD",
-                        )
-
-                    val request = HttpRequest.newBuilder().POST(formData(bodyJson))
-                        .uri(URI.create("https://live.afreecatv.com/afreeca/player_live_api.php?bjid=$bjId"))
-                        .header(
-                            "User-Agent",
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-                        )
-                        .header("Content-Type", "application/x-www-form-urlencoded").build()
-                    client.send(request, HttpResponse.BodyHandlers.ofString())
-                }
-                if (response.statusCode() != 200) {
-                    throw AfreecatvException(ExceptionCode.API_CHAT_CHANNEL_ID_ERROR)
-                }
-                val parser = JSONParser()
-                val jsonObject = parser.parse(response.body()) as JSONObject
-                val channel = jsonObject["CHANNEL"] as JSONObject
+                val channel = fetchChannel(bjId)
                 val categoryTags: MutableList<String> = ArrayList()
                 for (s in JSONParser().parse(channel["CATEGORY_TAGS"].toString()) as JSONArray) {
                     categoryTags.add(s.toString())
@@ -158,46 +137,63 @@ class AfreecatvAPI(private var channelId: String?) {
 
         private fun getInfo(bjId: String?): AfreecatvInfo {
             try {
-                val client = HttpClient.newHttpClient()
-                val bodyJson = mapOf(
-                    "bid" to bjId,
-                    "type" to "live",
-                    "confirm_adult" to "false",
-                    "player_type" to "html5",
-                    "mode" to "landing",
-                    "from_api" to "0",
-                    "pwd" to "",
-                    "stream_type" to "common",
-                    "quality" to "HD",
+                val channel = fetchChannel(bjId ?: "")
+                return AfreecatvInfo(
+                    channel["CHDOMAIN"].takeIf { it != "null" }?.toString(),
+                    channel["CHATNO"].takeIf { it != "null" }?.toString(),
+                    (channel["CHPT"].takeIf { it != "null" }?.toString()?.toInt()?.plus(1))?.toString(),
+                    channel["FTK"].takeIf { it != "null" }?.toString(),
+                    channel["TITLE"].takeIf { it != "null" }?.toString(),
+                    channel["BJID"].takeIf { it != "null" }?.toString(),
+                    channel["BNO"].takeIf { it != "null" }?.toString()
                 )
-
-                val request = HttpRequest.newBuilder().POST(formData(bodyJson))
-                    .uri(URI.create("https://live.sooplive.co.kr/afreeca/player_live_api.php?bjid=$bjId"))
-                    .headers(
-                        "User-Agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                        "Content-Type", "application/x-www-form-urlencoded"
-                    ).build()
-                val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-                if (response.statusCode() == 200) {
-                    val parser = JSONParser()
-                    val jsonObject = parser.parse(response.body()) as JSONObject
-                    val channel = jsonObject["CHANNEL"] as JSONObject
-                    return AfreecatvInfo(
-                        channel["CHDOMAIN"].takeIf { it != "null" }?.toString(),
-                        channel["CHATNO"].takeIf { it != "null" }?.toString(),
-                        (channel["CHPT"].takeIf { it != "null" }?.toString()?.toInt()?.plus(1))?.toString(),
-                        channel["FTK"].takeIf { it != "null" }?.toString(),
-                        channel["TITLE"].takeIf { it != "null" }?.toString(),
-                        channel["BJID"].takeIf { it != "null" }?.toString(),
-                        channel["BNO"].takeIf { it != "null" }?.toString()
-                    )
-                } else {
-                    throw AfreecatvException(ExceptionCode.API_CHAT_CHANNEL_ID_ERROR)
-                }
             } catch (e: Exception) {
                 throw AfreecatvException(ExceptionCode.API_CHAT_CHANNEL_ID_ERROR)
             }
+        }
+
+        private fun fetchChannel(bjId: String): JSONObject {
+            for (baseUrl in PLAYER_LIVE_API_BASES) {
+                try {
+                    val response = sendPlayerLiveRequest(bjId, baseUrl)
+                    if (response.statusCode() != 200) {
+                        continue
+                    }
+                    val jsonObject = JSONParser().parse(response.body()) as JSONObject
+                    return jsonObject["CHANNEL"] as JSONObject
+                } catch (e: Exception) {
+                    continue
+                }
+            }
+            throw AfreecatvException(ExceptionCode.API_CHAT_CHANNEL_ID_ERROR)
+        }
+
+        private fun sendPlayerLiveRequest(bjId: String, baseUrl: String): HttpResponse<String> {
+            val request = HttpRequest.newBuilder()
+                .POST(formData(buildPlayerLiveBody(bjId)))
+                .uri(URI.create("$baseUrl/afreeca/player_live_api.php?bjid=$bjId"))
+                .headers(
+                    "User-Agent",
+                    USER_AGENT,
+                    "Content-Type",
+                    "application/x-www-form-urlencoded"
+                )
+                .build()
+            return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
+        }
+
+        private fun buildPlayerLiveBody(bjId: String): Map<String, String?> {
+            return mapOf(
+                "bid" to bjId,
+                "type" to "live",
+                "confirm_adult" to "false",
+                "player_type" to "html5",
+                "mode" to "landing",
+                "from_api" to "0",
+                "pwd" to "",
+                "stream_type" to "common",
+                "quality" to "HD",
+            )
         }
 
         private fun formData(data: Map<String, String?>): BodyPublisher {
