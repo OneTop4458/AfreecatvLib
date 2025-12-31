@@ -6,6 +6,7 @@ import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 import me.taromati.afreecatv.data.AfreecatvInfo
 import me.taromati.afreecatv.event.AfreecatvEvent
 import me.taromati.afreecatv.event.implement.DonationChatEvent
@@ -39,7 +40,7 @@ class AfreecatvSocket(api: AfreecatvAPI, url: String, draft6455: Draft_6455?, in
 
     private var pingThread: Thread? = null
     private var isAlive = true
-    private val packetMap: MutableMap<String, AfreecatvCallback> = mutableMapOf()
+    private val packetMap: MutableMap<String, AfreecatvCallback> = ConcurrentHashMap()
 
     init {
         this.connectionLostTimeout = 0
@@ -62,11 +63,8 @@ class AfreecatvSocket(api: AfreecatvAPI, url: String, draft6455: Draft_6455?, in
                     val pingPacketBytes: ByteArray =
                         PING_PACKET.toByteArray()
                     send(pingPacketBytes)
-                    for ((key, packet) in packetMap) {
-                        if (packet.receivedTime.isBefore(LocalDateTime.now().minusMinutes(1))) {
-                            packetMap.remove(key)
-                        }
-                    }
+                    val expiry = LocalDateTime.now().minusMinutes(1)
+                    packetMap.entries.removeIf { it.value.receivedTime.isBefore(expiry) }
                 } catch (ignore: InterruptedException) {
                 }
             }
@@ -77,7 +75,7 @@ class AfreecatvSocket(api: AfreecatvAPI, url: String, draft6455: Draft_6455?, in
     override fun onMessage(message: String) {}
 
     override fun onMessage(bytes: ByteBuffer) {
-        val message = bytes.array().toString(StandardCharsets.UTF_8)
+        val message = StandardCharsets.UTF_8.decode(bytes.asReadOnlyBuffer()).toString()
         if (CONNECT_RES_PACKET == message) {
             val CHATNO = info.channelNumber
             val JOIN_PACKET = makePacket(KEY_JOIN, String.format("%s%s%s", F, CHATNO, F.repeat(5)))
@@ -189,7 +187,8 @@ class AfreecatvSocket(api: AfreecatvAPI, url: String, draft6455: Draft_6455?, in
     }
 
     private fun makeLengthPacket(data: String): String {
-        return String.format("%06d00", data.length)
+        val byteLength = data.toByteArray(StandardCharsets.UTF_8).size
+        return String.format("%06d00", byteLength)
     }
 
     private fun processChatMessage(event: AfreecatvEvent) {
