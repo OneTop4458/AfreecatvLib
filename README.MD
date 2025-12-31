@@ -12,11 +12,12 @@
 ## 예시
 ```groovy
 repositories {
-    maven("https://repo.repsy.io/mvn/lone64/platform")
+    mavenCentral()
+    maven("https://jitpack.io")
 }
 
 dependencies {
-    implementation("me.taromati:afreecatvlib:1.0.3")
+    implementation("com.github.Choi-JinHwan:AfreecatvLib:1.0.0")
 }
 ```
 
