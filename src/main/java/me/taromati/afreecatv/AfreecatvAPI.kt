@@ -7,7 +7,6 @@ import java.net.http.HttpRequest
 import java.net.http.HttpRequest.BodyPublisher
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
-import lombok.Getter
 import me.taromati.afreecatv.data.AfreecatvInfo
 import me.taromati.afreecatv.data.AfreecatvLiveInfo
 import me.taromati.afreecatv.event.implement.DonationChatEvent
@@ -22,7 +21,6 @@ import org.json.simple.JSONArray
 import org.json.simple.JSONObject
 import org.json.simple.parser.JSONParser
 
-@Getter
 class AfreecatvAPI(private var channelId: String?) {
     private var socket: AfreecatvSocket? = null
 
